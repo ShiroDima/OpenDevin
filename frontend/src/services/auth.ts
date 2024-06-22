@@ -10,4 +10,14 @@ const setToken = (token: string): void => {
   localStorage.setItem(TOKEN_KEY, token);
 };
 
-export { getToken, setToken, clearToken };
+const setID = (id: string): void => {
+  localStorage.setItem("userid", id);
+}
+
+const getID = (): string => localStorage.getItem("userid") ?? ""
+
+const clearID = (): void => {
+  localStorage.removeItem("userid")
+}
+
+export { getToken, setToken, clearToken, setID, getID, clearID };

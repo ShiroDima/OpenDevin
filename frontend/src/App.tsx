@@ -13,8 +13,10 @@ import AgentControlBar from "./components/AgentControlBar";
 import AgentStatusBar from "./components/AgentStatusBar";
 import Terminal from "./components/terminal/Terminal";
 import Session from "#/services/session";
-import { getToken } from "#/services/auth";
+import { getID, getToken } from "#/services/auth";
 import { settingsAreUpToDate } from "#/services/settings";
+import { useSessionData } from "./hooks/useSessionData";
+import { useUserData } from "./hooks/useUserData";
 
 interface Props {
   setSettingOpen: (isOpen: boolean) => void;
@@ -41,6 +43,9 @@ function Controls({ setSettingOpen }: Props): JSX.Element {
 let initOnce = false;
 
 function App(): JSX.Element {
+  // const { userID } = useSessionData();
+  // const { id } = useUserData();
+  
   const {
     isOpen: settingsModalIsOpen,
     onOpen: onSettingsModalOpen,

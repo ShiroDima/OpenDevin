@@ -1,4 +1,5 @@
-import React, { useRef } from "react";
+/* eslint-disable prettier/prettier */
+import React, { useRef, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { IoMdChatbubbles } from "react-icons/io";
 import { RiArrowRightDoubleLine } from "react-icons/ri";
@@ -11,14 +12,21 @@ import Chat from "./Chat";
 import { RootState } from "#/store";
 import AgentState from "#/types/AgentState";
 import { sendChatMessage } from "#/services/chatService";
-import { addUserMessage, addAssistantMessage } from "#/state/chatSlice";
+import {
+  addUserMessage,
+  addAssistantMessage,
+  clearMessages,
+} from "#/state/chatSlice";
 import { I18nKey } from "#/i18n/declaration";
 import { useScrollToBottom } from "#/hooks/useScrollToBottom";
 import { Feedback } from "#/services/feedbackService";
 import FeedbackModal from "../modals/feedback/FeedbackModal";
 import { removeApiKey } from "#/utils/utils";
 import Session from "#/services/session";
-import { getToken } from "#/services/auth";
+import { getID, getToken } from "#/services/auth";
+import { useSessionData } from "#/hooks/useSessionData";
+import { useUserData } from "#/hooks/useUserData";
+import { useLocation } from "react-router-dom";
 
 interface ScrollButtonProps {
   onClick: () => void;
@@ -27,6 +35,68 @@ interface ScrollButtonProps {
   // eslint-disable-next-line react/require-default-props
   disabled?: boolean;
 }
+
+type ActionHistory = {
+  action: string;
+  args: { content: string };
+};
+
+type ChatHistory = {
+  sender: string;
+  content: string;
+};
+
+interface ChatInfo {
+  uid: string;
+  action_history: ActionHistory[];
+  chat_history: ChatHistory[];
+}
+
+const BASEURL = import.meta.env.VITE_BACKEND_HOST;
+
+const createNewUser = (userID: string): void => {
+  console.log("CREATED A NEW USER")
+  fetch(`http://${BASEURL}/api/history/create`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ uid: userID, action_history: [], chat_history: [] }),
+  })
+    .then((res) => {
+      if (res.ok) return;
+      if (!res.ok) throw new Error("Could not create user history");
+    })
+    .catch((error) => console.log(error));
+};
+
+const fetchHistories = (userID: string, dispatch: any): void => {
+  fetch(`http://${BASEURL}/api/history/${userID}`, {
+    method: "GET",
+  })
+    .then((res) => {
+      if (res.status === 404) {
+        createNewUser(userID);
+        return;
+      }
+      return res.json();
+    })
+    .then((chatInfo: ChatInfo) => {
+      if (!chatInfo) return;
+      const { chat_history, action_history } = chatInfo;
+
+      chat_history.forEach((hist: ChatHistory) => {
+        // console.log(hist)
+        const { sender, content } = hist;
+        sender === "user"
+          ? dispatch(addUserMessage(content))
+          : dispatch(addAssistantMessage(content));
+      });
+      Session._history = action_history;
+      // })
+    })
+    .catch((error) => console.log(error));
+};
 
 function ScrollButton({
   onClick,
@@ -49,11 +119,18 @@ function ScrollButton({
 }
 
 function ChatInterface() {
+  const checkInit = React.useRef(false);
+  const location = useLocation();
+  let { initOnce } = location.state || {};
+  checkInit.current = initOnce;
   const dispatch = useDispatch();
   const { messages } = useSelector((state: RootState) => state.chat);
   const { curAgentState } = useSelector((state: RootState) => state.agent);
 
+  const { userID } = useSessionData();
+
   const feedbackVersion = "1.0";
+
   const [feedback, setFeedback] = React.useState<Feedback>({
     email: "",
     feedback: "positive",
@@ -70,6 +147,31 @@ function ChatInterface() {
     onOpenChange: onFeedbackModalOpenChange,
   } = useDisclosure();
 
+
+  useEffect(() => {
+    // checkInit.current = initOnce
+    if (checkInit.current) {
+      return;
+    }
+    // setInitOnce(true);
+    initOnce = true;
+    // clearMessages()
+    if (!userID) {
+      if (getID() !== "") {
+        fetchHistories(getID(), dispatch);
+      }else{
+        setTimeout(() => fetchHistories(userID, dispatch), 10000);
+      }
+    } else {
+      fetchHistories(userID, dispatch);
+    }
+    checkInit.current = initOnce;
+
+    return () => {
+      dispatch(clearMessages())
+    }
+  }, []);
+
   const shareFeedback = async (polarity: "positive" | "negative") => {
     setFeedbackShared(messages.length);
     setFeedback((prev) => ({
@@ -83,7 +185,21 @@ function ChatInterface() {
 
   const handleSendMessage = (content: string) => {
     dispatch(addUserMessage(content));
-    sendChatMessage(content);
+    fetch(`http://${BASEURL}/api/history/update/${userID}?type=chat`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json", // Set the Content-Type header
+      },
+      body: JSON.stringify({
+        sender: "user",
+        content: content,
+      }),
+    })
+      .then((res) => res.json())
+      .then((res) =>
+        res.updated ? null : console.log("Could not add chat to history"),
+      );
+    sendChatMessage(content, BASEURL, userID);
   };
 
   const handleEmailChange = (key: string) => {

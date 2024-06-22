@@ -6,6 +6,7 @@ import { Provider } from "react-redux";
 import { NextUIProvider } from "@nextui-org/react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import App from "./App";
+import Login from "./components/auth/Login";
 import reportWebVitals from "./reportWebVitals";
 import store from "#/store";
 import "#/i18n";
@@ -14,6 +15,10 @@ const router = createBrowserRouter([
   {
     path: "/",
     element: <App />,
+  },
+  {
+    path: "/login",
+    element: <Login />,
   },
 ]);
 

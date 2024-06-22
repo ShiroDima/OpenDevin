@@ -1,6 +1,8 @@
 import uuid
 import warnings
+from typing import Annotated, List, Literal
 
+from dotenv import dotenv_values
 from opendevin.server.data_models.feedback import FeedbackDataModel, store_feedback
 
 with warnings.catch_warnings():
@@ -8,13 +10,13 @@ with warnings.catch_warnings():
     import litellm
 from pathlib import Path
 
-from fastapi import FastAPI, Request, Response, UploadFile, WebSocket, status
+from fastapi import FastAPI, Request, Response, UploadFile, WebSocket, status, Path, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer
 from fastapi.staticfiles import StaticFiles
 
-import agenthub  # noqa F401 (we import this to get the agents registered)
+# import agenthub  # noqa F401 (we import this to get the agents registered)
 from opendevin.controller.agent import Agent
 from opendevin.core.config import config
 from opendevin.core.logger import opendevin_logger as logger
@@ -24,17 +26,31 @@ from opendevin.events.serialization import event_to_dict
 from opendevin.llm import bedrock
 from opendevin.server.auth import get_sid_from_token, sign_token
 from opendevin.server.session import session_manager
+from opendevin.server.db import ChatHistoryDB, ChatInfo, InsertionError, FindError, ChatHistory, ActionHistory, UpdateError
+
+
+config = dotenv_values(".env")
+
+# Dependency
+def get_db():
+    db = ChatHistoryDB(uri=config["MONGO_DB_URI"])
+    try:
+        yield db
+    finally:
+        pass
 
 app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['http://localhost:3001'],
+    allow_origins=['http://localhost:3001', 'http://127.0.0.1:3001'],
     allow_credentials=True,
     allow_methods=['*'],
     allow_headers=['*'],
 )
 
 security_scheme = HTTPBearer()
+
 
 
 @app.middleware('http')
@@ -373,5 +389,76 @@ async def appconfig_defaults():
     """
     return config.defaults_dict
 
+
+##### API ROUTES FOR CHAT HISTORY IN MONGODB #####################################################
+@app.post("/api/history/create", response_class=JSONResponse, status_code=status.HTTP_201_CREATED)
+def create_user_history(chat_info: ChatInfo, db: ChatHistoryDB = Depends(get_db)):
+    try:
+        id = db.create_new_user_history(chat_info)
+
+    except InsertionError as error:
+        print(error.message)
+        return JSONResponse(
+            content={
+                "message": error.message
+            },
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    return {
+        "message": "History created successfully",
+        "id": id,
+    }
+
+
+@app.get("/api/history/{user_id}", status_code=status.HTTP_200_OK, response_model=ChatInfo)
+def get_chat_info(user_id: Annotated[str, Path()], db: ChatHistoryDB = Depends(get_db)):
+    # print(user_id)
+    try:
+        chat_history = db.get_user_chat_info(id=user_id)
+    except FindError as error:
+        return JSONResponse(
+            content={
+                "message": error.message
+            },
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+    if chat_history is None:
+        return JSONResponse(
+            content={
+                "message": "User does not exist"
+            },
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+
+    print(chat_history)
+
+    return chat_history
+
+
+@app.put("/api/history/update/{user_id}", status_code=status.HTTP_200_OK, response_class=JSONResponse)
+def add_to_chat_history(user_id: Annotated[str, Path()], type: Literal["chat", "action"], history: ChatHistory | ActionHistory, db: ChatHistoryDB = Depends(get_db)):
+    print(type)
+    if (type == "chat" and not isinstance(history, ChatHistory)) or (type == "action" and not isinstance(history, ActionHistory)):
+        return {
+            "message": "Invalid request. Type query and data sent do not match."
+        }, status.HTTP_400_BAD_REQUEST
+
+
+    try:
+        result = db.update_user_history(id=user_id, history=history, history_type=type)
+    except UpdateError as error:
+        return JSONResponse(
+            content={
+                "message": error.message
+            },
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+
+    return {
+        "updated": result.acknowledged,
+        "id": user_id
+    }
 
 app.mount('/', StaticFiles(directory='./frontend/dist', html=True), name='dist')

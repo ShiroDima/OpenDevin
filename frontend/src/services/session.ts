@@ -37,6 +37,7 @@ class Session {
 
   public static startNewSession() {
     clearToken();
+
     Session.restoreOrStartNewSession();
   }
 

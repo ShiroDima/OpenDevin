@@ -55,7 +55,7 @@ function ChatInput({ disabled = false, onSendMessage }: ChatInputProps) {
       <button
         type="button"
         onClick={handleSendChatMessage}
-        disabled={disabled}
+        disabled={false}
         className={twMerge(
           "bg-transparent border rounded-lg p-1 border-white hover:opacity-80 cursor-pointer select-none absolute right-5 bottom-[19px] transition active:bg-white active:text-black",
           disabled

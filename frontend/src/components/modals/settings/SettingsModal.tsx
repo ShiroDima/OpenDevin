@@ -1,6 +1,6 @@
 import { Spinner } from "@nextui-org/react";
 import i18next from "i18next";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSelector } from "react-redux";
 import { fetchAgents, fetchModels } from "#/services/options";
@@ -8,6 +8,8 @@ import { AvailableLanguages } from "#/i18n";
 import { I18nKey } from "#/i18n/declaration";
 import Session from "#/services/session";
 import { RootState } from "../../../store";
+import { useNavigate } from "react-router-dom";
+// import { Hanko } from "@teamhanko/hanko-elements";
 import AgentState from "../../../types/AgentState";
 import {
   Settings,
@@ -21,6 +23,7 @@ import {
 import toast from "#/utils/toast";
 import BaseModal from "../base-modal/BaseModal";
 import SettingsForm from "./SettingsForm";
+import { clearID } from "#/services/auth";
 
 interface SettingsProps {
   isOpen: boolean;
@@ -28,9 +31,13 @@ interface SettingsProps {
 }
 
 const REQUIRED_SETTINGS = ["LLM_MODEL", "AGENT"];
+const hankoApi = import.meta.env.VITE_HANKO_API_URL;
 
 function SettingsModal({ isOpen, onOpenChange }: SettingsProps) {
   const { t } = useTranslation();
+
+  const navigate = useNavigate();
+  const [hanko, setHanko] = useState<Hanko>();
 
   const [models, setModels] = React.useState<string[]>([]);
   const [agents, setAgents] = React.useState<string[]>([]);
@@ -42,6 +49,12 @@ function SettingsModal({ isOpen, onOpenChange }: SettingsProps) {
   useEffect(() => {
     maybeMigrateSettings();
     setSettings(getSettings());
+  }, []);
+
+  useEffect(() => {
+    import("@teamhanko/hanko-elements").then(({ Hanko }) =>
+      setHanko(new Hanko(hankoApi ?? ""))
+    );
   }, []);
 
   useEffect(() => {
@@ -157,6 +170,21 @@ function SettingsModal({ isOpen, onOpenChange }: SettingsProps) {
           closeAfterAction: true,
           className: "bg-rose-600 rounded-lg",
         },
+        {
+          label: 'Logout',
+          action: async () => {
+            try {
+              await hanko?.user.logout();
+              navigate("/login");
+              clearID()
+              // clearMessages()
+            } catch (error) {
+              console.error("Error during logout:", error);
+            }
+          },
+          isDisabled: false,
+          className: "bg-primary rounded-lg"
+        }
       ]}
     >
       {loading && <Spinner />}
