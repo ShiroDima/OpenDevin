@@ -33,22 +33,6 @@ class ChatHistoryDB:
 
         return str(_id)
 
-    # def update_user_chat_history(self, id: str, history: ChatHistory) -> Dict[str, Any]:
-    #     try:
-    #         result = self._history.update_one(
-    #             {"uid": id},
-    #             # {"email": "sd.akarawak@gmail.com"},
-    #             {
-    #                 "$push": {
-    #                     "chat_history": history.model_dump()
-    #                 }
-    #             }
-    #         )
-    #     except errors.OperationFailure:
-    #         raise UpdateError(f'Could not add chat history for user with id {id}')
-    #
-    #     return result
-
 
     def update_user_history(self, id: str, history: ActionHistory | ChatHistory, history_type=str) -> Dict[str, Any]:
         assert isinstance(history, ActionHistory) or isinstance(history, ChatHistory), "Please send the data in the right format. Expected one of ChatHistory or ActionHistory."
@@ -68,6 +52,7 @@ class ChatHistoryDB:
             raise UpdateError(f'Could not add action history for user with id {id}')
 
         return result
+    
     def get_user_chat_info(self, id: str) -> ChatInfo | None:
         # print(id)
         try:
@@ -82,63 +67,4 @@ class ChatHistoryDB:
             return []
 
         return results
-
-
-
-
-if __name__ == "__main__":
-
-    db = ChatHistoryDB(uri="mongodb://root:example@localhost:27017/")
-
-    sd_history = {
-        "email": "sd.akarawak@gmail.com",
-        "history": [
-            {
-                "action": "message",
-                "args": {
-                    "content": "Hello World!"
-                }
-            },
-            {
-                "action": "message",
-                "args": {
-                    "content": "This is just test data to be used for the database"
-                }
-            }
-        ]
-    }
-
-    ad_history = {
-        "email": "ad.shiro@outlook.com",
-        "history": [
-            {
-                "action": "message",
-                "args": {
-                    "content": "Hello World!"
-                }
-            },
-            {
-                "action": "message",
-                "args": {
-                    "content": "This is just test data to be used for the database"
-                }
-            }
-        ]
-    }
-
-    db.create_new_user_history(ChatInfo.model_validate(sd_history))
-    db.create_new_user_history(ChatInfo.model_validate(ad_history))
-
-
-    db.update_user_history(
-        email=Email.model_validate({"email": "sd.akarawak@gmail.com"}),
-        history=History.model_validate(
-        {
-            "action": "message",
-            "args": {
-                "content": "This is a new addition and the update must reflect!"
-            }
-        })
-    )
-
-    print(db.get_user_chat_history(email=Email.model_validate({"email": "sd.akarawak@gmail.com"})))
+    

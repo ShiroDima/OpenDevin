@@ -442,7 +442,7 @@ def add_to_chat_history(user_id: Annotated[str, Path()], type: Literal["chat", "
     print(type)
     if (type == "chat" and not isinstance(history, ChatHistory)) or (type == "action" and not isinstance(history, ActionHistory)):
         return {
-            "message": "Invalid request. Type query and data sent do not match."
+            "message": "Invalid request. Type query parameter value and data sent do not match."
         }, status.HTTP_400_BAD_REQUEST
 
 
@@ -461,4 +461,4 @@ def add_to_chat_history(user_id: Annotated[str, Path()], type: Literal["chat", "
         "id": user_id
     }
 
-app.mount('/', StaticFiles(directory='./frontend/dist', html=True), name='dist')
+# app.mount('/', StaticFiles(directory='./frontend/dist', html=True), name='dist')

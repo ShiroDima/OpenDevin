@@ -1,6 +1,6 @@
 from typing import Dict, Literal, List
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel
 
 
 class ActionHistory(BaseModel):
@@ -19,7 +19,6 @@ class History(BaseModel):
 
 
 class ChatInfo(BaseModel):
-    # id: str = Field(..., alias="_id")
     uid: str
     action_history: List[ActionHistory]
     chat_history: List[ChatHistory]
