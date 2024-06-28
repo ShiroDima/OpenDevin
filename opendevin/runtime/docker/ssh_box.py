@@ -9,7 +9,13 @@ import uuid
 from glob import glob
 
 import docker
-from pexpect import exceptions, pxssh
+
+if os.name == "nt":
+    from wexpect import wexpect_utils as exceptions
+else:
+    print('Could not find wexpect. Using pexpect instead')
+    from pexpect import exceptions, pxssh
+
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from opendevin.core.config import config
@@ -120,7 +126,7 @@ def split_bash_commands(commands):
                 if not heredoc_trigger and current_command:
                     result.append(''.join(current_command).strip())
                     current_command = []
-            elif char == '<' and commands[i : i + 2] == '<<':
+            elif char == '<' and commands[i: i + 2] == '<<':
                 # Detect heredoc
                 state = IN_HEREDOC
                 i += 2  # Skip '<<'
@@ -130,7 +136,7 @@ def split_bash_commands(commands):
                 while commands[i] not in [' ', '\n']:
                     i += 1
                 heredoc_trigger = commands[start:i]
-                current_command.append(commands[start - 2 : i])  # Include '<<'
+                current_command.append(commands[start - 2: i])  # Include '<<'
                 continue  # Skip incrementing i at the end of the loop
             current_command.append(char)
 
@@ -149,7 +155,7 @@ def split_bash_commands(commands):
             if (
                 char == '\n'
                 and heredoc_trigger
-                and commands[i + 1 : i + 1 + len(heredoc_trigger) + 1]
+                and commands[i + 1: i + 1 + len(heredoc_trigger) + 1]
                 == heredoc_trigger + '\n'
             ):
                 # Check if the next line starts with the heredoc trigger followed by a newline
