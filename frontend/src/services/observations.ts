@@ -6,7 +6,7 @@ import { appendOutput } from "#/state/commandSlice";
 import { appendJupyterOutput } from "#/state/jupyterSlice";
 import ObservationType from "#/types/ObservationType";
 import { addAssistantMessage } from "#/state/chatSlice";
-import { getID } from "./auth";
+import { getID, getToken } from "./auth";
 
 const BASEURL = import.meta.env.VITE_BACKEND_HOST;
 
@@ -36,7 +36,8 @@ export function handleObservationMessage(message: ObservationMessage) {
       fetch(`http://${BASEURL}/api/history/update/${getID()}?type=chat`, {
         method: "PUT",
         headers: {
-          'Content-Type': 'application/json' // Set the Content-Type header
+          'Content-Type': 'application/json', // Set the Content-Type header,
+          "Authorization": `Bearer ${getToken()}`
         },
         body: JSON.stringify(
           {

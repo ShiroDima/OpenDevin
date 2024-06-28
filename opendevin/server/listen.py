@@ -29,7 +29,7 @@ from opendevin.server.session import session_manager
 from opendevin.server.db import ChatHistoryDB, ChatInfo, InsertionError, FindError, ChatHistory, ActionHistory, UpdateError
 
 
-config = dotenv_values(".env")
+config = dotenv_values("./opendevin/.env")
 
 # Dependency
 def get_db():

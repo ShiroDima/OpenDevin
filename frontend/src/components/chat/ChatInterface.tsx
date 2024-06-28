@@ -60,6 +60,7 @@ const createNewUser = (userID: string): void => {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "Authorization": `Bearer ${getToken()}`
     },
     body: JSON.stringify({ uid: userID, action_history: [], chat_history: [] }),
   })
@@ -73,6 +74,10 @@ const createNewUser = (userID: string): void => {
 const fetchHistories = (userID: string, dispatch: any): void => {
   fetch(`http://${BASEURL}/api/history/${userID}`, {
     method: "GET",
+    headers: {
+      'Content-Type': "application/json",
+      "Authorization": `Bearer ${getToken()}`
+    }
   })
     .then((res) => {
       if (res.status === 404) {
@@ -188,7 +193,8 @@ function ChatInterface() {
     fetch(`http://${BASEURL}/api/history/update/${userID}?type=chat`, {
       method: "PUT",
       headers: {
-        "Content-Type": "application/json", // Set the Content-Type header
+        "Content-Type": "application/json", 
+        "Authorization": `Bearer ${getToken()}` 
       },
       body: JSON.stringify({
         sender: "user",

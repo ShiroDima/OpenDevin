@@ -5,6 +5,8 @@ from bson.objectid import ObjectId
 from .models import ChatInfo, History, ActionHistory, ChatHistory
 from .exceptions import InsertionError, FindError, UpdateError
 
+from opendevin.core.logger import opendevin_logger as logger
+
 class ChatHistoryDB:
     def __init__(self, uri: str):
         self.uri = uri
@@ -14,6 +16,14 @@ class ChatHistoryDB:
     def connect(self):
         # client = MongoClient("mongodb://root:example@localhost:27017/")
         client = MongoClient(self.uri)
+
+        try:
+            client.admin.command('ping')
+            logger.info("Pinged your deployment. You successfully connected to MongoDB!")
+        except Exception as e:
+            print(e)
+
+        # TODO Catch pymongo.errors.ServerSelectionTimeoutError
 
         return client
 
