@@ -46,7 +46,9 @@ class SSHExecCancellableStream(CancellableStream):
             return -1
 
         _exit_code = self.ssh.before.strip()
-        return int(_exit_code)
+        print(_exit_code)
+        print(type(_exit_code))
+        return int(_exit_code, 16)
 
     def read_output(self):
         st = time.time()

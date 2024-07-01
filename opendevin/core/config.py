@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
+print(os.getenv('OPENAI_API_KEY'))
+
 
 @dataclass
 class LLMConfig(metaclass=Singleton):
@@ -50,7 +52,7 @@ class LLMConfig(metaclass=Singleton):
     """
 
     model: str = 'gpt-4o'
-    api_key: str | None = None
+    api_key: str | None = os.getenv('OPENAI_API_KEY')
     base_url: str | None = None
     api_version: str | None = None
     embedding_model: str = 'local'

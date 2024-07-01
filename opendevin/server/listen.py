@@ -10,11 +10,15 @@ with warnings.catch_warnings():
     import litellm
 from pathlib import Path
 
-from fastapi import FastAPI, Request, Response, UploadFile, WebSocket, status, Path, Depends
+from fastapi import FastAPI, Query, Request, Response, UploadFile, WebSocket, status, Depends, Path as PathParameter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer
 from fastapi.staticfiles import StaticFiles
+
+from pymongo import errors
+
+from contextlib import asynccontextmanager
 
 # import agenthub  # noqa F401 (we import this to get the agents registered)
 from opendevin.controller.agent import Agent
@@ -27,11 +31,22 @@ from opendevin.llm import bedrock
 from opendevin.server.auth import get_sid_from_token, sign_token
 from opendevin.server.session import session_manager
 from opendevin.server.db import ChatHistoryDB, ChatInfo, InsertionError, FindError, ChatHistory, ActionHistory, UpdateError
+from opendevin.server.utils import save_workspace, build_workspace
 
 
 config = dotenv_values("./opendevin/.env")
 
-# Dependency
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        ChatHistoryDB(uri=config['MONGO_DB_URI'])
+    except errors.ServerSelectionTimeoutError as error:
+            logger.error('Could not connect to the MongoDB server.')
+            raise error
+
+    yield
+
+# Dependency for injection
 def get_db():
     db = ChatHistoryDB(uri=config["MONGO_DB_URI"])
     try:
@@ -39,7 +54,7 @@ def get_db():
     finally:
         pass
 
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -57,18 +72,22 @@ security_scheme = HTTPBearer()
 async def attach_session(request: Request, call_next):
     if request.url.path.startswith('/api/options/') or not request.url.path.startswith(
         '/api/'
-    ):
+    ) or request.method == 'OPTIONS':
         response = await call_next(request)
         return response
+    
 
-    if not request.headers.get('Authorization'):
+    print(request.headers.keys())
+
+    if not request.headers.get('authorization'):
         response = JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={'error': 'Missing Authorization header'},
         )
+        print('Missing Authorization header')
         return response
 
-    auth_token = request.headers.get('Authorization')
+    auth_token = request.headers.get('authorization')
     if 'Bearer' in auth_token:
         auth_token = auth_token.split('Bearer')[1].strip()
 
@@ -78,6 +97,7 @@ async def attach_session(request: Request, call_next):
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={'error': 'Invalid token'},
         )
+        print('Invalid token')
         return response
 
     request.state.session = session_manager.get_session(request.state.sid)
@@ -226,7 +246,7 @@ async def get_agents():
 
 
 @app.get('/api/list-files')
-def list_files(request: Request, path: str = '/'):
+def list_files(request: Request, file_path: Annotated[str, Query()] = "/"):
     """
     List files.
 
@@ -266,8 +286,8 @@ def list_files(request: Request, path: str = '/'):
     )
 
     try:
-        entries = request.state.session.agent_session.runtime.file_store.list(path)
-
+        entries = request.state.session.agent_session.runtime.file_store.list(file_path)
+        print(f'Query Parameter: {file_path}')
         # Filter entries, excluding special folders
         if entries:
             return [
@@ -393,6 +413,10 @@ async def appconfig_defaults():
 ##### API ROUTES FOR CHAT HISTORY IN MONGODB #####################################################
 @app.post("/api/history/create", response_class=JSONResponse, status_code=status.HTTP_201_CREATED)
 def create_user_history(chat_info: ChatInfo, db: ChatHistoryDB = Depends(get_db)):
+    """
+    Create new user history in database
+    """
+
     try:
         id = db.create_new_user_history(chat_info)
 
@@ -412,8 +436,17 @@ def create_user_history(chat_info: ChatInfo, db: ChatHistoryDB = Depends(get_db)
 
 
 @app.get("/api/history/{user_id}", status_code=status.HTTP_200_OK, response_model=ChatInfo)
-def get_chat_info(user_id: Annotated[str, Path()], db: ChatHistoryDB = Depends(get_db)):
-    # print(user_id)
+def get_chat_info(user_id: Annotated[str, PathParameter()], db: ChatHistoryDB = Depends(get_db)):
+    """
+    Get all chat and action histories for the user matching the passed ID.
+
+    Args:
+        user_id (Annotated[str, PathParameter): UserID that identifies the user that is logged in
+        db (ChatHistoryDB, optional): MongoDB connection for performing database operations. Defaults to Depends(get_db).
+
+    Returns:
+        ChatInfo: ChatInfo object containing action and chat history lists.
+    """
     try:
         chat_history = db.get_user_chat_info(id=user_id)
     except FindError as error:
@@ -438,8 +471,19 @@ def get_chat_info(user_id: Annotated[str, Path()], db: ChatHistoryDB = Depends(g
 
 
 @app.put("/api/history/update/{user_id}", status_code=status.HTTP_200_OK, response_class=JSONResponse)
-def add_to_chat_history(user_id: Annotated[str, Path()], type: Literal["chat", "action"], history: ChatHistory | ActionHistory, db: ChatHistoryDB = Depends(get_db)):
-    print(type)
+def add_to_chat_history(user_id: Annotated[str, PathParameter()], type: Literal["chat", "action"], history: ChatHistory | ActionHistory, db: ChatHistoryDB = Depends(get_db)):
+    """
+    Update either of the action or chat histories for a particular user with ID: user_id
+
+    Args:
+        user_id (Annotated[str, PathParameter): User ID for the signed user.
+        type (Literal[&quot;chat&quot;, &quot;action&quot;]): Which of Chat or Action history needs to be updated
+        history (ChatHistory | ActionHistory): ChatHistory or ActionHistory data to use for update
+        db (ChatHistoryDB, optional): MongoDB connection for performing database operations. Defaults to Depends(get_db).
+
+    Returns:
+        response: Dict[str, Any]
+    """
     if (type == "chat" and not isinstance(history, ChatHistory)) or (type == "action" and not isinstance(history, ActionHistory)):
         return {
             "message": "Invalid request. Type query parameter value and data sent do not match."
@@ -460,5 +504,83 @@ def add_to_chat_history(user_id: Annotated[str, Path()], type: Literal["chat", "
         "updated": result.acknowledged,
         "id": user_id
     }
+
+@app.post(
+    "/api/history/workspace/{user_id}", 
+    status_code=status.HTTP_200_OK,
+    response_class=JSONResponse
+    )
+def save_workspace_files(
+    user_id: Annotated[str, PathParameter()], 
+    db: ChatHistoryDB = Depends(get_db)):
+    """
+    Saves all files in the workspace folder by zipping the folder and sending it to MongoDB using GridFS
+
+    Args:
+        user_id (Annotated[str, PathParameter): UserID that identifies the user that is logged in
+        db (ChatHistoryDB, optional): MongoDB connection for performing database operations. Defaults to Depends(get_db).
+
+    Returns:
+        response: JSONResponse
+    """
+
+    try:
+        done = save_workspace(uid=user_id, db=db)
+    except Exception as error:
+        logger.error(f'Error saving the workspace: {error}')
+
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=f'Error saving the workspace: {error}'
+        )
+
+    if done is None:
+        JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=f'No files or folders found in workspace.'
+        )
+    if done:
+        return {
+            "content": "Workspace saved successfully."
+        }
+
+@app.get(
+    "/api/history/workspace/{user_id}",
+    status_code=status.HTTP_200_OK,
+    response_class=JSONResponse
+)
+def get_workspace_files(
+    user_id: Annotated[str, PathParameter()],
+    db: ChatHistoryDB = Depends(get_db)
+):
+    """
+    Retrieves the users files from MongoDB GridFS and unzips them into the workspace folder for use.
+
+    Args:
+        user_id (Annotated[str, PathParameter): UserID that identifies the user that is logged in
+        db (ChatHistoryDB, optional): MongoDB connection for performing database operations. Defaults to Depends(get_db).
+
+    Returns:
+        response: JSONResponse
+    """
+    try:
+        done = build_workspace(uid=user_id, db=db)
+    except Exception as error:
+        logger.error(f'Error retrieving the workspace: {error}')
+
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=f'Error retrieving the workspace: {error}'
+        )
+    
+    if done:
+        return {
+            "content": "Workspace retrieved successfully."
+        }
+    else:
+        return JSONResponse(
+            content="Workspace data has previously not been saved.",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
 
 # app.mount('/', StaticFiles(directory='./frontend/dist', html=True), name='dist')
