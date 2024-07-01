@@ -129,6 +129,7 @@ env.bak/
 .env.bak
 venv.bak/
 *venv/
+devin/
 
 # Spyder project settings
 .spyderproject
