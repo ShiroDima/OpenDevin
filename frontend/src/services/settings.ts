@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 const LATEST_SETTINGS_VERSION = 1;
 
 export type Settings = {

@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { useState, useEffect, useMemo } from "react";
 import { Hanko } from "@teamhanko/hanko-elements";
 

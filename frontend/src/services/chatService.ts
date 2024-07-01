@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import ActionType from "#/types/ActionType";
 import { getToken } from "./auth";
 import Session from "./session";
@@ -12,7 +13,7 @@ export function sendChatMessage(message: string, baseURL: string, userID: string
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json', // Set the Content-Type header
-      "Authorization": `Bearer ${getToken()}`
+      Authorization: `Bearer ${getToken()}`
     },
     body: eventString,
   })

@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import toast from "#/utils/toast";
 import { handleAssistantMessage } from "./actions";
 import { getToken, setToken, clearToken } from "./auth";
@@ -128,6 +129,8 @@ class Session {
       Session._socket.close();
     }
     Session._socket = null;
+
+    clearToken()
   }
 
   static send(message: string): void {

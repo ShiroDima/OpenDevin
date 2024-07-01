@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { Textarea } from "@nextui-org/react";
 import React from "react";
 import { useTranslation } from "react-i18next";
@@ -55,7 +56,7 @@ function ChatInput({ disabled = false, onSendMessage }: ChatInputProps) {
       <button
         type="button"
         onClick={handleSendChatMessage}
-        disabled={false}
+        disabled={disabled}
         className={twMerge(
           "bg-transparent border rounded-lg p-1 border-white hover:opacity-80 cursor-pointer select-none absolute right-5 bottom-[19px] transition active:bg-white active:text-black",
           disabled

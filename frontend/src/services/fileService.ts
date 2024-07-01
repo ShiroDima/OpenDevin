@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { request } from "./api";
 
 export async function selectFile(file: string): Promise<string> {

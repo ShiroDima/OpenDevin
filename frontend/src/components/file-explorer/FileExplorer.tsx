@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+/* eslint-disable prettier/prettier */
 import React from "react";
 import {
   IoIosArrowBack,
@@ -118,9 +120,9 @@ function FileExplorer() {
   };
 
   React.useEffect(() => {
-    (async () => {
-      await refreshWorkspace();
-    })();
+    // (async () => {
+    // })();
+    if(curAgentState === AgentState.INIT) setTimeout(() => refreshWorkspace().catch(console.log), 3000)
   }, [curAgentState]);
 
   React.useEffect(() => {

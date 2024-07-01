@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { changeAgentState } from "#/state/agentSlice";
 import { setUrl, setScreenshotSrc } from "#/state/browserSlice";
 import store from "#/store";
@@ -33,20 +34,23 @@ export function handleObservationMessage(message: ObservationMessage) {
       break;
     default:
       store.dispatch(addAssistantMessage(message.message));
-      fetch(`http://${BASEURL}/api/history/update/${getID()}?type=chat`, {
-        method: "PUT",
-        headers: {
-          'Content-Type': 'application/json', // Set the Content-Type header,
-          "Authorization": `Bearer ${getToken()}`
-        },
-        body: JSON.stringify(
-          {
-            sender: "assistant",
-            content: message.message,
-          }),
-      })
-      .then(res => res.json())
-      .then(res => res.updated ? null : console.log('Could not add chat to history'))
+      if(!message.message.startsWith('Error')){
+        fetch(`http://${BASEURL}/api/history/update/${getID()}?type=chat`, {
+          method: "PUT",
+          headers: {
+            'Content-Type': 'application/json', // Set the Content-Type header,
+            "Authorization": `Bearer ${getToken()}`
+          },
+          body: JSON.stringify(
+            {
+              sender: "assistant",
+              content: message.message,
+            }),
+        })
+        .then(res => res.json())
+        .then(res => res.updated ? null : console.log('Could not add chat to history'))
+      }
+      
       break;
   }
 }

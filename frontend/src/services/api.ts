@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { getToken } from "./auth";
 import toast from "#/utils/toast";
 

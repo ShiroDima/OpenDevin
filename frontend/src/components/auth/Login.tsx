@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo } from "react";
+/* eslint-disable prettier/prettier */
+import React, { useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { register, Hanko } from "@teamhanko/hanko-elements";
-import { clearMessages } from "#/state/chatSlice";
+import { setID } from "#/services/auth";
+import Session from "#/services/session";
 
 const hankoApi = import.meta.env.VITE_HANKO_API_URL;
-
 
 export default function HankoAuth() {
   const navigate = useNavigate();
@@ -12,6 +13,15 @@ export default function HankoAuth() {
   
 
   const redirectAfterLogin = useCallback(() => {
+    hanko?.user
+      .getCurrent()
+      .then(({ id }) => {
+        setID(id);
+      })
+      .catch(() => {
+        setID("");
+      });
+    Session.startNewSession()
     navigate("/", {
       state: {initOnce: false}
     });
@@ -20,6 +30,7 @@ export default function HankoAuth() {
   useEffect(
     () =>
       hanko.onAuthFlowCompleted(() => {
+        // Redirect to the main homepage after login has been completed.
         redirectAfterLogin();
       }),
     [hanko, redirectAfterLogin],
@@ -40,6 +51,4 @@ export default function HankoAuth() {
       </div>
     </div>
   );
-
-  // return <hanko-auth />;
 }

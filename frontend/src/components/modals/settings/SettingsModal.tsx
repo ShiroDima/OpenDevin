@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { Spinner } from "@nextui-org/react";
 import i18next from "i18next";
 import React, { useEffect, useState } from "react";
@@ -23,22 +24,25 @@ import {
 import toast from "#/utils/toast";
 import BaseModal from "../base-modal/BaseModal";
 import SettingsForm from "./SettingsForm";
-import { clearID } from "#/services/auth";
+import { clearID, clearToken, getID, getToken } from "#/services/auth";
+import { clearMessages } from "#/state/chatSlice";
 
 interface SettingsProps {
   isOpen: boolean;
+  // eslint-disable-next-line prettier/prettier
   onOpenChange: (isOpen: boolean) => void;
 }
 
 const REQUIRED_SETTINGS = ["LLM_MODEL", "AGENT"];
 const hankoApi = import.meta.env.VITE_HANKO_API_URL;
+const BASEURL = import.meta.env.VITE_BACKEND_HOST
 
 function SettingsModal({ isOpen, onOpenChange }: SettingsProps) {
   const { t } = useTranslation();
 
   const navigate = useNavigate();
   const [hanko, setHanko] = useState<Hanko>();
-
+  const userID = getID()
   const [models, setModels] = React.useState<string[]>([]);
   const [agents, setAgents] = React.useState<string[]>([]);
   const [settings, setSettings] = React.useState<Settings>({} as Settings);
@@ -128,6 +132,24 @@ function SettingsModal({ isOpen, onOpenChange }: SettingsProps) {
     );
   };
 
+  // Function to save the workspace to the database on logout
+  const saveWorkspace = (): void => {
+    fetch(`http://${BASEURL}/api/history/workspace/${userID}`, {
+      method: "POST",
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${getToken()}`
+      }
+    })
+    .then(res => res.json())
+    .then(res => {
+      if(!res.ok){
+        throw new Error('An error occured while saving the workspace') 
+      }
+    })
+    .catch(console.log)
+  }
+
   let subtitle = t(I18nKey.CONFIGURATION$MODAL_SUB_TITLE);
   if (loading) {
     subtitle = t(I18nKey.CONFIGURATION$AGENT_LOADING);
@@ -174,16 +196,19 @@ function SettingsModal({ isOpen, onOpenChange }: SettingsProps) {
           label: 'Logout',
           action: async () => {
             try {
+              saveWorkspace()
               await hanko?.user.logout();
               navigate("/login");
               clearID()
-              // clearMessages()
+              clearToken()
+              Session.disconnect()
+              clearMessages()
             } catch (error) {
               console.error("Error during logout:", error);
             }
           },
           isDisabled: false,
-          className: "bg-primary rounded-lg"
+          className: "bg-rose-600 rounded-lg"
         }
       ]}
     >

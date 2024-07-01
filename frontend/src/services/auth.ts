@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 const TOKEN_KEY = "token";
 
 const getToken = (): string => localStorage.getItem(TOKEN_KEY) ?? "";
